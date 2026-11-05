@@ -7,16 +7,16 @@ from .serializers import GameSerializer
 
 class GameViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Public, read-only API for the website.
+    Public read-only API.
 
       GET /api/games/          -> list of published games (with their cards)
       GET /api/games/<slug>/   -> one published game
 
-    Games and cards can only be created or changed in the Django admin
-    (superuser only). This API has no write endpoints at all.
+    Games and cards can only be created or changed in the Django admin.
     """
 
     serializer_class = GameSerializer
+    authentication_classes = []  # ignore cookies entirely
     permission_classes = [AllowAny]
     lookup_field = "slug"
     pagination_class = None  # the frontend expects a plain array

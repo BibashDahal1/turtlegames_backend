@@ -38,6 +38,7 @@ INSTALLED_APPS = [
  
     # Local apps
     "games",
+    "visitors",
 ]
 
 MIDDLEWARE = [
@@ -139,7 +140,18 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    # Visitors sign in with:  Authorization: Visitor <token>
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "visitors.authentication.CookieTokenAuthentication",
+    ],
+    # Limits how often one IP address can register (stops spam sign-ups).
+    "DEFAULT_THROTTLE_RATES": {
+        "visitor_register": "20/hour",
+    },
+    "NUM_PROXIES": 1,
 }
+
+VISITOR_MIN_AGE = 16
 
 # CORS (adjust to your frontend's address)
 CORS_ALLOWED_ORIGINS = [
