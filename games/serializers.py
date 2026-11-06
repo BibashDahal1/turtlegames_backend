@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import Game, GameCard
@@ -41,6 +42,9 @@ class GameSerializer(serializers.ModelSerializer):
     box = serializers.SerializerMethodField()
     cardBack = serializers.SerializerMethodField()
     cards = GameCardSerializer(many=True, read_only=True)
+    rules = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    currency = serializers.SerializerMethodField()
 
     class Meta:
         model = Game
@@ -54,12 +58,15 @@ class GameSerializer(serializers.ModelSerializer):
             "minutes",
             "age",
             "language",
+            "price",
+            "currency",
             "color",
             "color2",
             "accent",
             "box",
             "cardBack",
             "cards",
+            "rules",
         ]
 
     def get_blurb(self, obj):
@@ -78,9 +85,30 @@ class GameSerializer(serializers.ModelSerializer):
     def get_cardBack(self, obj):
         return image_url(obj.card_back)
 
+    def get_price(self, obj):
+        return float(obj.price) if obj.price is not None else None
+
+    def get_currency(self, obj):
+        return getattr(settings, "SHOP_CURRENCY", "NPR") if obj.price is not None else None
+
+    def get_rules(self, obj):
+        """Numbered 1, 2, 3... in the order set in the admin. Empty optional keys are left out."""
+        rules = []
+        for number, rule in enumerate(obj.rules.all(), start=1):
+            item = {"number": number, "text": rule.text}
+            if rule.title:
+                item["title"] = rule.title
+            image = image_url(rule.image)
+            if image:
+                item["image"] = image
+                if rule.image_caption:
+                    item["imageCaption"] = rule.image_caption
+            rules.append(item)
+        return rules
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        for key in ("nameNative", "cardBack"):
+        for key in ("nameNative", "cardBack", "price", "currency"):
             if not data.get(key):
                 data.pop(key, None)
         return data

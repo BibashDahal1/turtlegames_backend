@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Count
 from django.utils.html import format_html
 
-from .models import Game, GameCard
+from .models import Game, GameCard, GameRule
 
 
 def thumb(resource, height=120):
@@ -15,6 +15,22 @@ def thumb(resource, height=120):
         url,
         height,
     )
+
+
+class GameRuleInline(admin.StackedInline):
+    model = GameRule
+    extra = 0
+    fields = (
+        ("order", "title"),
+        "text",
+        ("image", "image_preview"),
+        "image_caption",
+    )
+    readonly_fields = ("image_preview",)
+
+    @admin.display(description="Preview")
+    def image_preview(self, obj):
+        return thumb(obj.image) if obj and obj.pk and obj.image else "—"
 
 
 class GameCardInline(admin.StackedInline):
@@ -38,20 +54,22 @@ class GameAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "slug",
+        "price",
         "order",
         "is_published",
+        "rule_count",
         "card_count",
         "front_preview",
     )
-    list_editable = ("order", "is_published")
+    list_editable = ("price", "order", "is_published")
     list_filter = ("is_published",)
     search_fields = ("name", "name_native", "slug")
     prepopulated_fields = {"slug": ("name",)}
-    inlines = [GameCardInline]
+    inlines = [GameRuleInline, GameCardInline]
 
     fieldsets = (
         ("Basics", {"fields": ("slug", "name", "name_native", "tagline", "blurb")}),
-        ("Details", {"fields": (("players", "minutes", "age"), "language")}),
+        ("Details", {"fields": (("players", "minutes", "age"), "language", "price")}),
         ("Colours", {"fields": (("color", "color2", "accent"),)}),
         (
             "Box images (all six faces)",
@@ -80,7 +98,15 @@ class GameAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_card_count=Count("cards"))
+        # distinct=True: two joins at once would otherwise multiply the counts
+        return super().get_queryset(request).annotate(
+            _card_count=Count("cards", distinct=True),
+            _rule_count=Count("rules", distinct=True),
+        )
+
+    @admin.display(description="Rules", ordering="_rule_count")
+    def rule_count(self, obj):
+        return obj._rule_count
 
     @admin.display(description="Cards", ordering="_card_count")
     def card_count(self, obj):

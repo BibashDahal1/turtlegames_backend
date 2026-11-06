@@ -1,5 +1,7 @@
+from decimal import Decimal
+
 from cloudinary.models import CloudinaryField
-from django.core.validators import RegexValidator
+from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 
 hex_colour_validator = RegexValidator(
@@ -32,6 +34,17 @@ class Game(models.Model):
     minutes = models.CharField(max_length=20, help_text="e.g. 15–20")
     age = models.CharField(max_length=20, help_text="e.g. 14+")
     language = models.CharField(max_length=100, help_text="e.g. Nepali / English")
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        help_text=(
+            "Price of ONE game box. Leave empty if it is not for sale yet "
+            "(visitors cannot order it). The currency is set in settings (SHOP_CURRENCY)."
+        ),
+    )
 
     color = models.CharField(
         "colour 1", max_length=7, validators=[hex_colour_validator], default="#000000"
@@ -113,3 +126,48 @@ class GameCard(models.Model):
 
     def __str__(self):
         return f"{self.game.name} - {self.name}"
+
+
+class GameRule(models.Model):
+    """
+    One numbered rule of a game, with an optional picture.
+    The numbers 1, 2, 3... are NOT typed in: they are assigned automatically
+    from the order of the rules.
+    """
+
+    game = models.ForeignKey(Game, related_name="rules", on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Position of the rule. Lower numbers come first. "
+            "Rules are numbered 1, 2, 3... automatically in this order."
+        ),
+    )
+    title = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Optional short heading for the rule, e.g. Setup.",
+    )
+    text = models.TextField(
+        max_length=1500,
+        help_text="The rule. Plain text only. A new line in the box becomes a new line on the site.",
+    )
+    image = CloudinaryField(
+        "rule image",
+        folder="games/rules",
+        blank=True,
+        null=True,
+        help_text="Optional picture that shows this rule. Leave empty if the text is enough.",
+    )
+    image_caption = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Optional caption under the picture (also used as its alt text).",
+    )
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        preview = self.title or self.text[:40]
+        return f"{self.game.name} - rule: {preview}"

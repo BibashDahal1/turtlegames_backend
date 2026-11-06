@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     # Local apps
     "games",
     "visitors",
+    "orders",
 ]
 
 MIDDLEWARE = [
@@ -147,9 +148,13 @@ REST_FRAMEWORK = {
     # Limits how often one IP address can register (stops spam sign-ups).
     "DEFAULT_THROTTLE_RATES": {
         "visitor_register": "20/hour",
+        "order_create": "10/hour",
     },
     "NUM_PROXIES": 1,
 }
+
+SHOP_CURRENCY = "NPR"
+SHOP_MAX_QUANTITY_PER_ITEM = 10 
 
 VISITOR_MIN_AGE = 16
 

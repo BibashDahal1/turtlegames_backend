@@ -82,6 +82,11 @@ class MeView(APIView):
                 "firstName": visitor.first_name,
                 "middleName": visitor.middle_name,
                 "lastName": visitor.last_name,
+                # The visitor's own saved details: the shop uses them to pre-fill the order form.
+                "email": visitor.email,
+                "phone": visitor.phone,
+                "country": visitor.country,
+                "city": visitor.city,
             }
         )
         set_token_cookie(response, request.COOKIES[cookie_name()])
