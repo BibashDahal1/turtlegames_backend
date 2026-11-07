@@ -107,3 +107,78 @@ class OrderItem(models.Model):
     @property
     def line_total(self):
         return self.unit_price * self.quantity
+
+
+class Cart(models.Model):
+    """
+    The cart a visitor is building, saved on the server so it survives reloads, cleared browser data
+    and a change of device. One per visitor. There is no online payment and no separate "order":
+    the visitor adds games, fills in delivery details, and you see the cart here in the admin, then
+    contact them by phone or email, agree payment and delivery, and update the status.
+    Prices are NOT stored: they are read from the games when the cart is shown.
+    """
+
+    class Status(models.TextChoices):
+        NEW = "new", "New"
+        CONTACTED = "contacted", "Contacted"
+        CONFIRMED = "confirmed", "Confirmed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    visitor = models.OneToOneField(
+        "visitors.Visitor", related_name="cart", on_delete=models.CASCADE
+    )
+
+    # Details the visitor gives so you can reach them and deliver. Empty until they save them.
+    first_name = models.CharField(max_length=50, blank=True, default="")
+    middle_name = models.CharField(max_length=50, blank=True, default="")
+    last_name = models.CharField(max_length=50, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    phone = models.CharField(max_length=20, blank=True, default="")
+    country = models.CharField(max_length=80, blank=True, default="")
+    city = models.CharField(max_length=80, blank=True, default="")
+    address = models.CharField(
+        max_length=250, blank=True, default="", help_text="Street, area, ward, house number."
+    )
+    landmark = models.CharField(max_length=150, blank=True, default="")
+    note = models.TextField(max_length=500, blank=True, default="", help_text="Written by the visitor.")
+    details_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the visitor last saved their details. Empty = they have not given any yet.",
+    )
+
+    # Your follow-up. The visitor never sees these two.
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.NEW)
+    internal_note = models.TextField(
+        blank=True, default="", help_text="Your own notes. Never shown to the visitor."
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"Cart of {self.full_name or self.visitor}"
+
+    @property
+    def full_name(self):
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(p for p in parts if p)
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, related_name="items", on_delete=models.CASCADE)
+    game = models.ForeignKey(
+        "games.Game", related_name="cart_items", on_delete=models.CASCADE
+    )
+    quantity = models.PositiveSmallIntegerField(validators=[MinValueValidator(1)])
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["cart", "game"], name="unique_game_per_cart")
+        ]
+
+    def __str__(self):
+        return f"{self.game} x{self.quantity}"
