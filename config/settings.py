@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "games",
     "visitors",
     "orders",
+    "payments",
 ]
 
 MIDDLEWARE = [
@@ -149,6 +150,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "visitor_register": "20/hour",
         "order_create": "10/hour",
+        "payment_create": "5/hour",
     },
     "NUM_PROXIES": 1,
 }
