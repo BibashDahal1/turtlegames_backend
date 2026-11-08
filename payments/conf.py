@@ -3,7 +3,10 @@ All payment settings come from ENVIRONMENT VARIABLES (or Django settings of the 
 Going live later = changing these values only, no code change:
 
     PAYMENT_MODE        test (default) or live
-    FRONTEND_URL        where visitors are sent back after paying, e.g. http://localhost:3000
+    FRONTEND_URL        frontend origin, e.g. https://turtlegames-alpha.vercel.app
+    PAYMENT_RETURN_URL  Khalti return URL template ({provider}, {reference})
+    ESEWA_SUCCESS_URL   eSewa success URL template ({reference})
+    ESEWA_FAILURE_URL   eSewa failure URL template ({reference})
     KHALTI_SECRET_KEY   Khalti secret key (test key from test-admin.khalti.com, live key from admin.khalti.com)
     ESEWA_PRODUCT_CODE  eSewa merchant code      (test default: EPAYTEST)
     ESEWA_SECRET_KEY    eSewa secret key         (test default: the public UAT key from eSewa's docs)
@@ -47,6 +50,34 @@ def is_test():
 
 def frontend_url():
     return str(_get("FRONTEND_URL", "http://localhost:3000")).rstrip("/")
+
+
+def _payment_url(name, default, **values):
+    template = str(_get(name, default)).strip() or default
+    try:
+        return template.format(**values)
+    except (KeyError, ValueError) as error:
+        raise ImproperlyConfigured(f"{name} contains an invalid URL template.") from error
+
+
+def payment_return_url(provider, reference):
+    default = f"{frontend_url()}/support/return/{{provider}}/{{reference}}"
+    return _payment_url(
+        "PAYMENT_RETURN_URL",
+        default,
+        provider=provider,
+        reference=reference,
+    )
+
+
+def esewa_success_url(reference):
+    default = f"{frontend_url()}/support/return/esewa/{{reference}}"
+    return _payment_url("ESEWA_SUCCESS_URL", default, reference=reference)
+
+
+def esewa_failure_url(reference):
+    default = f"{frontend_url()}/support/return/esewa/{{reference}}"
+    return _payment_url("ESEWA_FAILURE_URL", default, reference=reference)
 
 
 def currency():

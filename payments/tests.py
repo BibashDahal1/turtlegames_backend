@@ -37,7 +37,14 @@ def esewa_redirect(reference, amount, *, status="COMPLETE", secret=None, tamper=
     return base64.b64encode(json.dumps(body).encode()).decode()
 
 
-@override_settings(PAYMENT_MODE="test", KHALTI_SECRET_KEY="test_key", FRONTEND_URL="http://localhost:3000")
+@override_settings(
+    PAYMENT_MODE="test",
+    KHALTI_SECRET_KEY="test_key",
+    FRONTEND_URL="http://localhost:3000",
+    PAYMENT_RETURN_URL="",
+    ESEWA_SUCCESS_URL="",
+    ESEWA_FAILURE_URL="",
+)
 class PaymentTests(TestCase):
     def setUp(self):
         self.visitor = make_visitor()
@@ -74,6 +81,30 @@ class PaymentTests(TestCase):
         with mock.patch("payments.conf.env_config", return_value="test_key") as env_config:
             self.assertEqual(conf.khalti()["secret_key"], "test_key")
         env_config.assert_any_call("KHALTI_SECRET_KEY", default="")
+
+    def test_payment_return_urls_use_configurable_templates(self):
+        with override_settings(
+            PAYMENT_RETURN_URL="https://frontend.example/return/{provider}/{reference}",
+            ESEWA_SUCCESS_URL="https://frontend.example/success/{reference}",
+            ESEWA_FAILURE_URL="https://frontend.example/failure/{reference}",
+        ):
+            self.assertEqual(
+                conf.payment_return_url("khalti", "SUP-1"),
+                "https://frontend.example/return/khalti/SUP-1",
+            )
+            self.assertEqual(
+                conf.esewa_success_url("SUP-1"),
+                "https://frontend.example/success/SUP-1",
+            )
+            self.assertEqual(
+                conf.esewa_failure_url("SUP-1"),
+                "https://frontend.example/failure/SUP-1",
+            )
+
+    def test_invalid_payment_return_url_template_is_reported(self):
+        with override_settings(PAYMENT_RETURN_URL="https://frontend.example/{missing}"):
+            with self.assertRaises(conf.ImproperlyConfigured):
+                conf.payment_return_url("khalti", "SUP-1")
 
     @override_settings(PAYMENT_MODE="live", KHALTI_SECRET_KEY="", ESEWA_PRODUCT_CODE="", ESEWA_SECRET_KEY="")
     def test_live_mode_never_falls_back_to_test_keys(self):
@@ -117,7 +148,8 @@ class PaymentTests(TestCase):
         self.assertEqual(captured["payload"]["amount"], 25000)  # Rs 250 = 25000 paisa
         self.assertEqual(captured["payload"]["purchase_order_id"], payment.reference)
         self.assertEqual(
-            captured["payload"]["return_url"], f"http://localhost:3000/support/return/khalti/{payment.reference}"
+            captured["payload"]["return_url"],
+            f"http://localhost:3000/support/return/khalti/{payment.reference}",
         )
 
     def test_start_khalti_provider_error_is_reported_and_recorded(self):
@@ -144,6 +176,7 @@ class PaymentTests(TestCase):
         self.assertEqual(fields["signature"], expected)
         self.assertEqual(fields["signed_field_names"], "total_amount,transaction_uuid,product_code")
         self.assertEqual(fields["success_url"], f"http://localhost:3000/support/return/esewa/{reference}")
+        self.assertEqual(fields["failure_url"], f"http://localhost:3000/support/return/esewa/{reference}")
         self.assertNotIn("?", fields["success_url"])
         self.assertRegex(reference, r"^[A-Za-z0-9-]+$")  # eSewa: letters, digits, hyphen only
 

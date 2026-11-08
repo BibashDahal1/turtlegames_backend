@@ -54,15 +54,13 @@ def start_payment(visitor, provider, amount):
     )
     # One page on the website handles the return from both providers. eSewa adds "?data=..." to the
     # success address, so no query string is put in these addresses.
-    return_url = f"{conf.frontend_url()}/support/return/{provider}/{payment.reference}"
-
     try:
         if provider == Payment.Provider.KHALTI:
             pidx, payment_url = gateways.khalti_initiate(
                 reference=payment.reference,
                 paisa=int(amount) * 100,
                 name=PURCHASE_NAME,
-                return_url=return_url,
+                return_url=conf.payment_return_url(provider, payment.reference),
                 website_url=conf.frontend_url(),
             )
             payment.provider_ref = pidx
@@ -76,8 +74,8 @@ def start_payment(visitor, provider, amount):
         action, fields = gateways.esewa_form(
             reference=payment.reference,
             amount=amount,
-            success_url=return_url,
-            failure_url=return_url,
+            success_url=conf.esewa_success_url(payment.reference),
+            failure_url=conf.esewa_failure_url(payment.reference),
         )
         return {
             "provider": provider,
