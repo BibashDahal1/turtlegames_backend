@@ -115,8 +115,17 @@ class PaymentTests(TestCase):
         self.assertEqual(response.status_code, 503)
 
     def test_login_is_required(self):
-        response = APIClient().post("/api/payments/start/", {"provider": "khalti", "amount": 100}, format="json")
-        self.assertIn(response.status_code, (401, 403))
+        client = APIClient()
+
+        config_response = client.get("/api/payments/config/")
+        start_response = client.post(
+            "/api/payments/start/",
+            {"provider": "khalti", "amount": 100},
+            format="json",
+        )
+
+        self.assertEqual(config_response.status_code, 401)
+        self.assertEqual(start_response.status_code, 401)
 
     # ---- starting ----
     def test_amount_limits(self):
